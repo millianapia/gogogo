@@ -1,0 +1,2 @@
+# gogogo
+ simple go project
