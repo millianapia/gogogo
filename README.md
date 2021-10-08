@@ -10,6 +10,8 @@ Golang bot that connects to slack using Socketclient to read and write messages.
 - @SquidBot :  Mentions your name and when you wrote the message. Responds with hello if you have hello in your message. 
 - /pär : Responds with a picture with the guy from squidgame and greets you
 - /squid : Responds with a picture of a squid and greets you 
+- /crab : Responds with a picture of a crab and greets you 
+
 
 
 ## 📚 Libraries used 📚
