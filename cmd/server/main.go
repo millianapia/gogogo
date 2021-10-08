@@ -1,5 +1,6 @@
 package main
 
+// Imports
 import (
 	"context"
 	"errors"
@@ -17,16 +18,14 @@ import (
 
 func main() {
 
-	// Load Env variables from .dot file
-	godotenv.Load("../../.env")
+	// Load env 
+	godotenv.Load(".env")
 
 	token := os.Getenv("SLACK_AUTH_TOKEN")
 	appToken := os.Getenv("SLACK_APP_TOKEN")
-	// Create a new client to slack by giving token
-	// Set debug to true while developing
-	// Also add a ApplicationToken option to the client
+	
+	// New socketClient
 	client := slack.New(token, slack.OptionDebug(true), slack.OptionAppLevelToken(appToken))
-	// go-slack comes with a SocketMode package that we need to use that accepts a Slack client and outputs a Socket mode client instead
 	socketClient := socketmode.New(
 		client,
 		socketmode.OptionDebug(true),
@@ -34,41 +33,46 @@ func main() {
 		socketmode.OptionLog(log.New(os.Stdout, "socketmode: ", log.Lshortfile|log.LstdFlags)),
 	)
 
-	// Create a context that can be used to cancel goroutine
 	ctx, cancel := context.WithCancel(context.Background())
-	// Make this cancel called properly in a real program , graceful shutdown etc
 	defer cancel()
 
 	go func(ctx context.Context, client *slack.Client, socketClient *socketmode.Client) {
-		// Create a for loop that selects either the context cancellation or the events incomming
 		for {
 			select {
-			// inscase context cancel is called exit the goroutine
+		
 			case <-ctx.Done():
 				log.Println("Shutting down socketmode listener")
 				return
 			case event := <-socketClient.Events:
-				// We have a new Events, let's type switch the event
-				// Add more use cases here if you want to listen to other events.
 				switch event.Type {
 				// handle EventAPI events
 				case socketmode.EventTypeEventsAPI:
-					// The Event sent on the channel is not the same as the EventAPI events so we need to type cast it
 					eventsAPIEvent, ok := event.Data.(slackevents.EventsAPIEvent)
 					if !ok {
 						log.Printf("Could not type cast the event to the EventsAPIEvent: %v\n", event)
 						continue
 					}
-					// We need to send an Acknowledge to the slack server
 					socketClient.Ack(*event.Request)
-					// Now we have an Events API event, but this event type can in turn be many types, so we actually need another type switch
 					err := handleEventMessage(eventsAPIEvent, client)
 					if err != nil {
-					  // Replace with actual err handeling
 						log.Fatal(err)
-					}				}
+					}
+				// Handle commands
+				case socketmode.EventTypeSlashCommand:
+					command, ok := event.Data.(slack.SlashCommand)
+					if !ok {
+						log.Printf("Could not type cast the message to a SlashCommand: %v\n", command)
+						continue
+					}
+					socketClient.Ack(*event.Request)
+					err := handleSlashCommand(command, client)
+					if err != nil {
+						log.Fatal(err)
+					}
 
+				}
 			}
+
 		}
 	}(ctx, client, socketClient)
 
@@ -96,7 +100,7 @@ func handleEventMessage(event slackevents.EventsAPIEvent, client *slack.Client) 
 	return nil
 }
 
-// handleAppMentionEvent is used to take care of the AppMentionEvent when the bot is mentioned
+// Botmentionhandler
 func handleAppMentionEvent(event *slackevents.AppMentionEvent, client *slack.Client) error {
 
 	// Grab the user name based on the ID of the one who mentioned the bot
@@ -104,12 +108,9 @@ func handleAppMentionEvent(event *slackevents.AppMentionEvent, client *slack.Cli
 	if err != nil {
 		return err
 	}
-	// Check if the user said Hello to the bot
 	text := strings.ToLower(event.Text)
 
-	// Create the attachment and assigned based on the message
 	attachment := slack.Attachment{}
-	// Add Some default context like user who mentioned the bot
 	attachment.Fields = []slack.AttachmentField{
 		{
 			Title: "Date",
@@ -120,19 +121,55 @@ func handleAppMentionEvent(event *slackevents.AppMentionEvent, client *slack.Cli
 		},
 	}
 	if strings.Contains(text, "hello") {
-		// Greet the user
+	
 		attachment.Text = fmt.Sprintf("Hello %s", user.Name)
 		attachment.Pretext = "Greetings"
 		attachment.Color = "#4af030"
 	} else {
-		// Send a message to the user
 		attachment.Text = fmt.Sprintf("How can I help you %s?", user.Name)
 		attachment.Pretext = "How can I be of service"
 		attachment.Color = "#3d3d3d"
 	}
-	// Send the message to the channel
-	// The Channel is available in the event message
+
 	_, _, err = client.PostMessage(event.Channel, slack.MsgOptionAttachments(attachment))
+	if err != nil {
+		return fmt.Errorf("failed to post message: %w", err)
+	}
+	return nil
+}
+
+// Handles commands 
+func handleSlashCommand(command slack.SlashCommand, client *slack.Client) error {
+	switch command.Command {
+	case "/pär":
+		return handleParCommand(command, client)
+    case "/squid":
+        return handleSquidCommand(command, client)
+	}
+
+	return nil
+}
+
+func handleParCommand(command slack.SlashCommand, client *slack.Client) error {
+	// Setup message
+	attachment := slack.Attachment{}
+	attachment.Text = fmt.Sprintf("Hello %sPÄRY", command.Text)
+	attachment.Color = "#eb6d54"
+
+	_, _, err := client.PostMessage(command.ChannelID, slack.MsgOptionAttachments(attachment))
+	if err != nil {
+		return fmt.Errorf("failed to post message: %w", err)
+	}
+	return nil
+}
+
+func handleSquidCommand(command slack.SlashCommand, client *slack.Client) error {
+	// Setup message
+	attachment := slack.Attachment{}
+	attachment.Text = fmt.Sprintf("Hello %sSQUIDDY", command.Text)
+	attachment.Color = "#c67ed6"
+
+	_, _, err := client.PostMessage(command.ChannelID, slack.MsgOptionAttachments(attachment))
 	if err != nil {
 		return fmt.Errorf("failed to post message: %w", err)
 	}
