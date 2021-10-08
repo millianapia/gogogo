@@ -1,2 +1,3 @@
 # gogogo
- simple go project
+
+(not)simple go project
