@@ -45,7 +45,7 @@ func main() {
 				return
 			case event := <-socketClient.Events:
 				switch event.Type {
-				// handle EventAPI events
+				// Handle mentions events
 				case socketmode.EventTypeEventsAPI:
 					eventsAPIEvent, ok := event.Data.(slackevents.EventsAPIEvent)
 					if !ok {
@@ -81,7 +81,6 @@ func main() {
 
 func handleEventMessage(event slackevents.EventsAPIEvent, client *slack.Client) error {
 	switch event.Type {
-	// First we check if this is an CallbackEvent
 	case slackevents.CallbackEvent:
 
 		innerEvent := event.InnerEvent
@@ -121,13 +120,10 @@ func handleAppMentionEvent(event *slackevents.AppMentionEvent, client *slack.Cli
 		},
 	}
 	if strings.Contains(text, "hello") {
-	
 		attachment.Text = fmt.Sprintf("Hello %s", user.Name)
-		attachment.Pretext = "Greetings"
 		attachment.Color = "#4af030"
 	} else {
 		attachment.Text = fmt.Sprintf("How can I help you %s?", user.Name)
-		attachment.Pretext = "How can I be of service"
 		attachment.Color = "#3d3d3d"
 	}
 
@@ -143,8 +139,10 @@ func handleSlashCommand(command slack.SlashCommand, client *slack.Client) error 
 	switch command.Command {
 	case "/pär":
 		return handleParCommand(command, client)
+/*     case "/squid":
+        return handleSquidCommand(command, client) */
     case "/squid":
-        return handleSquidCommand(command, client)
+        return handleCrabCommand(command, client)
 	}
 
 	return nil
@@ -155,6 +153,7 @@ func handleParCommand(command slack.SlashCommand, client *slack.Client) error {
 	attachment := slack.Attachment{}
 	attachment.Text = fmt.Sprintf("Hello %sPÄRY", command.Text)
 	attachment.Color = "#eb6d54"
+	attachment.ImageURL = "https://www.indiewire.com/wp-content/uploads/2021/10/squid-game.png?resize=800,472"
 
 	_, _, err := client.PostMessage(command.ChannelID, slack.MsgOptionAttachments(attachment))
 	if err != nil {
@@ -168,6 +167,22 @@ func handleSquidCommand(command slack.SlashCommand, client *slack.Client) error 
 	attachment := slack.Attachment{}
 	attachment.Text = fmt.Sprintf("Hello %sSQUIDDY", command.Text)
 	attachment.Color = "#c67ed6"
+	attachment.ImageURL = "https://ichef.bbci.co.uk/news/976/cpsprodpb/BAE1/production/_118314874_squid1.jpg"
+
+	_, _, err := client.PostMessage(command.ChannelID, slack.MsgOptionAttachments(attachment))
+	if err != nil {
+		return fmt.Errorf("failed to post message: %w", err)
+	}
+	return nil
+}
+
+func handleCrabCommand(command slack.SlashCommand, client *slack.Client) error {
+	// Setup message
+	attachment := slack.Attachment{}
+	attachment.Text = fmt.Sprintf("oh %scrab!", command.Text)
+	attachment.Color = "#eb9e34"
+	attachment.ImageURL = "http://clipart-library.com/image_gallery2/Crab-Free-Download-PNG.png"
+
 
 	_, _, err := client.PostMessage(command.ChannelID, slack.MsgOptionAttachments(attachment))
 	if err != nil {
